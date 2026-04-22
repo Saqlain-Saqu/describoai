@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Description Writer — Shopify App</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #7c3aed;
+      --accent2: #06b6d4;
+      --accent3: #f59e0b;
+      --text: #e8e8f0;
+      --text-muted: #7070a0;
+      --success: #10b981;
+      --error: #ef4444;
+      --radius: 14px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 20% 20%, rgba(124,58,237,0.08) 0%, transparent 50%),
+                  radial-gradient(ellipse at 80% 80%, rgba(6,182,212,0.06) 0%, transparent 50%),
+                  radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.04) 0%, transparent 60%);
+      animation: bgShift 12s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes bgShift {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(2%, 2%) rotate(1deg); }
+    }
+
+    /* Top Nav */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .nav-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      background: linear-gradient(90deg, #fff, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-badge {
+      font-size: 11px;
+      background: rgba(124,58,237,0.25);
+      border: 1px solid rgba(124,58,237,0.4);
+      color: #a78bfa;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    /* Main layout */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 5vw, 46px);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 14px;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--accent2);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Main Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(124,58,237,0.4);
+    }
+
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .icon {
+      font-size: 16px;
+    }
+
+    /* Form Elements */
+    .field {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    select option { background: var(--surface2); }
+
+    /* Language Toggle */
+    .lang-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .lang-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .lang-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .lang-btn.active {
+      background: rgba(124,58,237,0.2);
+      border-color: var(--accent);
+      color: #c4b5fd;
+    }
+
+    /* Tone buttons */
+    .tone-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .tone-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .tone-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+    .tone-btn.active {
+      background: rgba(6,182,212,0.15);
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    /* Generate Button */
+    .btn-generate {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, var(--accent), #9333ea);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .btn-generate::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      transition: left 0.4s;
+    }
+
+    .btn-generate:hover::before { left: 100%; }
+    .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,0.4); }
+    .btn-generate:active { transform: translateY(0); }
+    .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Result Area */
+    .result-area {
+      position: relative;
+    }
+
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 180px;
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      transition: border-color 0.3s;
+    }
+
+    .result-box.has-content {
+      border-color: rgba(16,185,129,0.3);
+    }
+
+    .result-placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 14px;
+    }
+
+    /* Result Actions */
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .btn-copy, .btn-save, .btn-regen {
+      flex: 1;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid;
+      min-width: 100px;
+    }
+
+    .btn-copy {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+    .btn-copy:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    .btn-save {
+      background: rgba(16,185,129,0.15);
+      border-color: rgba(16,185,129,0.4);
+      color: var(--success);
+    }
+    .btn-save:hover { background: rgba(16,185,129,0.25); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-regen {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+    .btn-regen:hover { border-color: var(--accent3); color: var(--accent3); }
+
+    /* Loading State */
+    .loading-dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .loading-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: white;
+      animation: dot-bounce 1.2s infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes dot-bounce {
+      0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+      40% { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* Products Section */
+    .products-section {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .product-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .product-chip:hover {
+      border-color: var(--accent);
+      background: rgba(124,58,237,0.08);
+    }
+
+    .product-chip.selected {
+      border-color: var(--accent);
+      background: rgba(124,58,237,0.15);
+    }
+
+    .product-chip-name {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-chip-id {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 999;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 320px;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success { background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); color: #6ee7b7; }
+    .toast.error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
+    .toast.info { background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; }
+
+    /* Shop connect section */
+    .connect-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .connect-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    .connect-input-group {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .connect-input-group input {
+      flex: 1;
+      padding: 10px 14px;
+    }
+
+    .btn-connect {
+      padding: 10px 20px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-connect:hover { background: #6d28d9; }
+
+    /* Character counter */
+    .char-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">✍️</div>
+    <span class="nav-title">AI Description Writer</span>
+  </div>
+  <span class="nav-badge">Shopify App v1.0</span>
+</nav>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Product Descriptions<br><span>AI se — Seconds Mein</span></h1>
+    <p>English, Urdu, Hindi ya Arabic — apni language mein professional descriptions banao aur sales barhaao.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Supported Languages</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">&lt;5s</div>
+      <div class="stat-label">Generation Time</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">SEO</div>
+      <div class="stat-label">Optimized Output</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">1-Click</div>
+      <div class="stat-label">Save to Shopify</div>
+    </div>
+  </div>
+
+  <!-- Shop Connect Bar -->
+  <div class="connect-bar">
+    <div class="connect-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Shop connect nahi hai</span>
+    </div>
+    <div class="connect-input-group">
+      <input type="text" id="shopUrl" placeholder="yourstore.myshopify.com" />
+      <input type="text" id="shopToken" placeholder="Access Token (testing ke liye)" />
+      <button class="btn-connect" onclick="connectShop()">Connect</button>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid">
+
+    <!-- LEFT: Input Form -->
+    <div class="card">
+      <div class="card-title"><span class="icon">⚙️</span> App Settings</div>
+
+      <div class="field">
+        <label>Product Ka Naam *</label>
+        <input type="text" id="productName" placeholder="e.g. Ladies Lawn Suit, Gaming Chair..." oninput="updateCharCount(this, 'nameCount', 80)" />
+        <div class="char-count" id="nameCount">0/80</div>
+      </div>
+
+      <div class="field">
+        <label>Keywords (optional)</label>
+        <input type="text" id="keywords" placeholder="e.g. comfortable, premium quality, colorful..." />
+      </div>
+
+      <div class="field">
+        <label>Language Select Karo</label>
+        <div class="lang-grid">
+          <button class="lang-btn active" data-lang="english" onclick="selectLang(this)">🇬🇧 English</button>
+          <button class="lang-btn" data-lang="urdu" onclick="selectLang(this)">🇵🇰 Urdu</button>
+          <button class="lang-btn" data-lang="hindi" onclick="selectLang(this)">🇮🇳 Hindi</button>
+          <button class="lang-btn" data-lang="arabic" onclick="selectLang(this)">🇸🇦 Arabic</button>
+          <button class="lang-btn" data-lang="both" onclick="selectLang(this)" style="grid-column:span 2">🌐 English + Urdu</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field">
+        <label>Tone / Style</label>
+        <div class="tone-grid">
+          <button class="tone-btn active" data-tone="professional" onclick="selectTone(this)">💼 Professional</button>
+          <button class="tone-btn" data-tone="casual" onclick="selectTone(this)">😊 Casual</button>
+          <button class="tone-btn" data-tone="luxury" onclick="selectTone(this)">👑 Luxury</button>
+          <button class="tone-btn" data-tone="exciting" onclick="selectTone(this)">🔥 Exciting</button>
+        </div>
+      </div>
+
+      <button class="btn-generate" id="generateBtn" onclick="generateDescription()">
+        ✨ Description Generate Karo
+      </button>
+    </div>
+
+    <!-- RIGHT: Output -->
+    <div class="card">
+      <div class="card-title"><span class="icon">📄</span> Generated Description</div>
+
+      <div class="result-area">
+        <div class="result-box" id="resultBox">
+          <span class="result-placeholder">
+            Yahan aapki AI-generated description ayegi...
+            <br><br>
+            Product ka naam daalein aur "Generate" dabayein! 🚀
+          </span>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn-copy" onclick="copyDescription()" id="copyBtn" disabled>📋 Copy</button>
+        <button class="btn-regen" onclick="generateDescription()" id="regenBtn" disabled>🔄 Regenerate</button>
+        <button class="btn-save" onclick="saveToShopify()" id="saveBtn" disabled>💾 Shopify Pe Save</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Word count & SEO hint -->
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
+        <span id="wordCount">0 words</span>
+        <span id="seoHint"></span>
+      </div>
+    </div>
+
+    <!-- Products Section -->
+    <div class="products-section">
+      <div class="card">
+        <div class="card-title"><span class="icon">🛍️</span> Aapke Products (Shop Connect Karne Ke Baad)</div>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+          Product select karo → Description generate karo → Save karo. Itna aasaan!
+        </p>
+        <div class="products-grid" id="productsGrid">
+          <div style="color:var(--text-muted); font-size:13px; font-style:italic;">
+            Pehle shop connect karein products dekhne ke liye...
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let selectedLang = 'english';
+  let selectedTone = 'professional';
+  let generatedDescription = '';
+  let shopData = { shop: '', token: '' };
+  let selectedProductId = null;
+
+  // URL se shop/token parse karo (OAuth ke baad)
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('shop') && params.get('token')) {
+    shopData.shop = params.get('shop');
+    shopData.token = params.get('token');
+    document.getElementById('shopUrl').value = shopData.shop;
+    document.getElementById('shopToken').value = shopData.token;
+    updateConnectionStatus(true);
+    loadProducts();
+  }
+
+  function connectShop() {
+    const shop = document.getElementById('shopUrl').value.trim();
+    const token = document.getElementById('shopToken').value.trim();
+
+    if (!shop) { showToast('Shop URL daalna zaroori hai', 'error'); return; }
+    if (!token) { showToast('Access Token daalna zaroori hai', 'error'); return; }
+
+    shopData = { shop, token };
+    updateConnectionStatus(true);
+    loadProducts();
+    showToast('Shop successfully connect ho gaya!', 'success');
+  }
+
+  function updateConnectionStatus(connected) {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (connected) {
+      dot.className = 'status-dot connected';
+      text.textContent = `Connected: ${shopData.shop}`;
+    } else {
+      dot.className = 'status-dot';
+      text.textContent = 'Shop connect nahi hai';
+    }
+  }
+
+  async function loadProducts() {
+    try {
+      const res = await fetch(`/api/products?shop=${shopData.shop}&token=${shopData.token}`);
+      const products = await res.json();
+
+      if (!Array.isArray(products) || products.length === 0) {
+        document.getElementById('productsGrid').innerHTML =
+          '<div style="color:var(--text-muted);font-size:13px;">Koi product nahi mila.</div>';
+        return;
+      }
+
+      document.getElementById('productsGrid').innerHTML = products.map(p => `
+        <div class="product-chip" onclick="selectProduct('${p.id}', '${escapeHtml(p.title)}')" id="prod-${p.id}">
+          <div class="product-chip-name">${escapeHtml(p.title)}</div>
+          <div class="product-chip-id">ID: ${p.id}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function selectProduct(id, name) {
+    selectedProductId = id;
+    document.querySelectorAll('.product-chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`prod-${id}`)?.classList.add('selected');
+    document.getElementById('productName').value = name;
+    updateCharCount(document.getElementById('productName'), 'nameCount', 80);
+    showToast(`"${name}" select ho gaya`, 'info');
+  }
+
+  function selectLang(btn) {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedLang = btn.dataset.lang;
+  }
+
+  function selectTone(btn) {
+    document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedTone = btn.dataset.tone;
+  }
+
+  function updateCharCount(input, counterId, max) {
+    const count = input.value.length;
+    document.getElementById(counterId).textContent = `${count}/${max}`;
+  }
+
+  async function generateDescription() {
+    const productName = document.getElementById('productName').value.trim();
+    const keywords = document.getElementById('keywords').value.trim();
+
+    if (!productName) {
+      showToast('Product ka naam zaroor daalein!', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-dots"><span></span><span></span><span></span></span>';
+
+    const resultBox = document.getElementById('resultBox');
+    resultBox.innerHTML = '<span class="result-placeholder">AI likh raha hai...</span>';
+    resultBox.classList.remove('has-content');
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName,
+          keywords,
+          language: selectedLang,
+          tone: selectedTone,
+          shop: shopData.shop,
+          token: shopData.token,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.description) {
+        generatedDescription = data.description;
+        resultBox.textContent = data.description;
+        resultBox.classList.add('has-content');
+
+        // Enable buttons
+        document.getElementById('copyBtn').disabled = false;
+        document.getElementById('regenBtn').disabled = false;
+        document.getElementById('saveBtn').disabled = !shopData.shop;
+
+        // Word count
+        const words = data.description.split(/\s+/).filter(Boolean).length;
+        document.getElementById('wordCount').textContent = `${words} words`;
+        document.getElementById('seoHint').textContent = words >= 50 ? '✅ SEO ke liye kaafi' : '⚠️ Thoda aur chaahiye';
+
+        showToast('Description ready hai!', 'success');
+      } else {
+        resultBox.innerHTML = '<span class="result-placeholder">Error aaya. Dobara try karein.</span>';
+        showToast(data.error || 'Kuch galat ho gaya', 'error');
+      }
+    } catch (e) {
+      resultBox.innerHTML = '<span class="result-placeholder">Server se connection nahi ho raha.</span>';
+      showToast('Network error. Server check karein.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '✨ Description Generate Karo';
+    }
+  }
+
+  function copyDescription() {
+    if (!generatedDescription) return;
+    navigator.clipboard.writeText(generatedDescription).then(() => {
+      showToast('Copy ho gaya clipboard mein!', 'success');
+    });
+  }
+
+  async function saveToShopify() {
+    if (!generatedDescription || !shopData.shop) return;
+
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Save ho raha hai...';
+
+    try {
+      const res = await fetch('/api/save-to-shopify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: selectedProductId,
+          description: generatedDescription,
+          shop: shopData.shop,
+          token: shopData.token,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast('Shopify pe save ho gaya! 🎉', 'success');
+      } else {
+        showToast(data.error || 'Save nahi hua', 'error');
+      }
+    } catch (e) {
+      showToast('Save karne mein error aaya', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Shopify Pe Save';
+    }
+  }
+
+  function showToast(msg, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+
+</body>
+</html>
