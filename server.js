@@ -12,27 +12,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ============================================
-// SHOPIFY OAUTH - Install Route
-// ============================================
 app.get('/install', (req, res) => {
   const shop = req.query.shop;
   if (!shop) return res.status(400).send('Shop parameter required');
-
   const redirectUri = `${process.env.SHOPIFY_APP_URL}/auth/callback`;
-  const scopes = process.env.SCOPES;
-  const apiKey = process.env.SHOPIFY_API_KEY;
-
-  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${redirectUri}`;
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}&scope=${process.env.SCOPES}&redirect_uri=${redirectUri}`;
   res.redirect(installUrl);
 });
 
-// ============================================
-// SHOPIFY OAUTH - Callback Route
-// ============================================
 app.get('/auth/callback', async (req, res) => {
   const { shop, code } = req.query;
-
   try {
     const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
@@ -43,153 +32,88 @@ app.get('/auth/callback', async (req, res) => {
         code,
       }),
     });
-
     const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    // Production mein: accessToken ko database mein save karo
-    // Abhi ke liye: query param mein pass kar rahe hain (sirf testing ke liye)
-    res.redirect(`/?shop=${shop}&token=${accessToken}`);
+    res.redirect(`/?shop=${shop}&token=${tokenData.access_token}`);
   } catch (error) {
-    console.error('OAuth error:', error);
     res.status(500).send('Authentication failed');
   }
 });
 
-// ============================================
-// AI DESCRIPTION GENERATOR API
-// ============================================
 app.post('/api/generate', async (req, res) => {
-  const { productName, keywords, language, tone, shop, token } = req.body;
-
-  if (!productName) {
-    return res.status(400).json({ error: 'Product name required' });
-  }
+  const { productName, keywords, language, tone } = req.body;
+  if (!productName) return res.status(400).json({ error: 'Product name required' });
 
   const languageMap = {
-    english: 'English',
-    urdu: 'Urdu (Roman + Nastaliq)',
-    hindi: 'Hindi',
-    arabic: 'Arabic',
-    both: 'English aur Urdu dono mein (bilingual)',
+    english: 'English', urdu: 'Urdu', hindi: 'Hindi',
+    arabic: 'Arabic', both: 'English aur Urdu dono mein',
   };
-
   const toneMap = {
-    professional: 'professional aur formal',
-    casual: 'friendly aur casual',
-    luxury: 'luxury aur premium',
-    exciting: 'exciting aur energetic',
+    professional: 'professional aur formal', casual: 'friendly aur casual',
+    luxury: 'luxury aur premium', exciting: 'exciting aur energetic',
   };
 
-  const prompt = `Tum ek expert eCommerce copywriter ho. Neeche diye product ke liye ek compelling product description likho.
-
-Product Name: ${productName}
+  const prompt = `Tum ek expert eCommerce copywriter ho. Product ke liye compelling description likho.
+Product: ${productName}
 Keywords: ${keywords || 'N/A'}
 Language: ${languageMap[language] || 'English'}
 Tone: ${toneMap[tone] || 'professional'}
-
-Requirements:
-- 3-4 sentences ka description
-- Key features highlight karo
-- Customer ko convince karo khareedne ke liye
-- SEO-friendly rakho
-- Agar Urdu/Hindi manga hai toh proper script use karo
-
-Sirf description do, koi extra explanation nahi.`;
+3-4 sentences, SEO-friendly, sirf description do.`;
 
   try {
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-
-    const aiData = await aiResponse.json();
-    const description = aiData.content?.[0]?.text || 'Description generate nahi ho saka. Dobara try karein.';
-
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
+        }),
+      }
+    );
+    const data = await geminiResponse.json();
+    console.log('Gemini response:', JSON.stringify(data));
+    const description = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Error aaya';
     res.json({ description });
   } catch (error) {
-    console.error('AI Error:', error);
-    res.status(500).json({ error: 'AI service error. Baad mein try karein.' });
+    console.error('Gemini Error:', error);
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
-// ============================================
-// SHOPIFY PRODUCT UPDATE API
-// ============================================
 app.post('/api/save-to-shopify', async (req, res) => {
   const { productId, description, shop, token } = req.body;
-
-  if (!productId || !description || !shop || !token) {
+  if (!productId || !description || !shop || !token)
     return res.status(400).json({ error: 'Missing required fields' });
-  }
-
   try {
     const response = await fetch(`https://${shop}/admin/api/2024-01/products/${productId}.json`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': token,
-      },
-      body: JSON.stringify({
-        product: {
-          id: productId,
-          body_html: `<p>${description}</p>`,
-        },
-      }),
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+      body: JSON.stringify({ product: { id: productId, body_html: `<p>${description}</p>` } }),
     });
-
     const data = await response.json();
-    if (data.product) {
-      res.json({ success: true, message: 'Product description update ho gaya!' });
-    } else {
-      res.status(400).json({ error: 'Shopify update failed', details: data });
-    }
+    if (data.product) res.json({ success: true });
+    else res.status(400).json({ error: 'Save failed', details: data });
   } catch (error) {
-    console.error('Shopify save error:', error);
-    res.status(500).json({ error: 'Save karne mein error aaya' });
+    res.status(500).json({ error: 'Save error' });
   }
 });
 
-// ============================================
-// PRODUCTS LIST API
-// ============================================
 app.get('/api/products', async (req, res) => {
   const { shop, token } = req.query;
-
-  if (!shop || !token) {
-    return res.status(400).json({ error: 'Shop and token required' });
-  }
-
+  if (!shop || !token) return res.status(400).json({ error: 'Missing params' });
   try {
     const response = await fetch(`https://${shop}/admin/api/2024-01/products.json?limit=20`, {
       headers: { 'X-Shopify-Access-Token': token },
     });
-
     const data = await response.json();
     res.json(data.products || []);
   } catch (error) {
-    res.status(500).json({ error: 'Products fetch nahi ho sake' });
+    res.status(500).json({ error: 'Fetch error' });
   }
 });
 
-// ============================================
-// START SERVER
-// ============================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════╗
-║   AI Product Description Writer       ║
-║   Server chal raha hai port ${PORT} pe  ║
-╚════════════════════════════════════════╝
-  `);
+  console.log(`DescriboAI running on port ${PORT}`);
 });
