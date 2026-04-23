@@ -60,23 +60,26 @@ Tone: ${toneMap[tone] || 'professional'}
 3-4 sentences, SEO-friendly, sirf description do.`;
 
   try {
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
-        }),
-      }
-    );
-    const data = await geminiResponse.json();
-    console.log('Gemini response:', JSON.stringify(data));
-    const description = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Error aaya';
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama3-8b-8192',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await groqResponse.json();
+    console.log('Groq response:', JSON.stringify(data));
+    const description = data.choices?.[0]?.message?.content || 'Error aaya';
     res.json({ description });
   } catch (error) {
-    console.error('Gemini Error:', error);
+    console.error('Groq Error:', error);
     res.status(500).json({ error: 'AI service error' });
   }
 });
@@ -90,10 +93,10 @@ app.post('/api/save-to-shopify', async (req, res) => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
       body: JSON.stringify({ product: { id: productId, body_html: `<p>${description}</p>` } }),
-    });  
+    });
     const data = await response.json();
     if (data.product) res.json({ success: true });
-    else res.status(400).json({ error: 'Save failed', details: data });
+    else res.status(400).json({ error: 'Save failed' });
   } catch (error) {
     res.status(500).json({ error: 'Save error' });
   }
